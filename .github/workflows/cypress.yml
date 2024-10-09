@@ -1,0 +1,73 @@
+name: Run Cypress Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  cypress:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:5.0
+        ports:
+          - 27018:27017 # Mapping port 27018 on the host to 27017 in the container
+        options: >-
+          --health-cmd="mongo --eval 'db.adminCommand({ ping: 1 })' --quiet"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install server dependencies
+        working-directory: ./server
+        run: npm install
+
+      - name: Start the project server
+        working-directory: ./server
+        run: |
+          echo "Starting the server from the /server folder..."
+          npm start &
+          echo "Waiting for the server to be ready..."
+          while ! nc -z localhost 8000; do
+            echo "Waiting for server..."
+            sleep 5
+          done
+        env:
+          MONGODB_URI_LOCAL: mongodb://127.0.0.1:27018/gameZonex
+          JWT_SECRET: gameZonex
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm install
+
+      - name: Run the client project
+        working-directory: ./client
+        run: |
+          echo "Starting Vite dev server in the background..."
+          npm run dev &
+          echo "Waiting for Vite server to be ready..."
+          while ! nc -z localhost 5173; do
+            sleep 5
+          done
+
+      - name: Run Cypress tests
+        working-directory: ./client
+        run: |
+          echo "Running Cypress tests..."
+          npm run cy:test
+        env:
+          BASE_URL: http://localhost:8000

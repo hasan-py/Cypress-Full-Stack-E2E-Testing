@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.text-protest {
+  font-family: "Protest Guerrilla", sans-serif;
+}
